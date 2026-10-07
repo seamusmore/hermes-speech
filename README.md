@@ -59,32 +59,54 @@ Merge the following settings into the active profile's `config.yaml`:
 stt:
   enabled: true
   provider: http-speech
+  http-speech:
+    backend: qwen
+    qwen:
+      model: qwen-audio-3.1-asr-flash-streaming
+      region: beijing
+      api_key_env: DASHSCOPE_API_KEY
 tts:
   provider: http-speech
+  http-speech:
+    backend: qwen
+    qwen:
+      model: qwen-audio-3.1-tts-flash
+      region: beijing
+      api_key_env: DASHSCOPE_API_KEY
+      format: pcm
+      sample_rate: 24000
+      rate: 1.0
+```
+
+Each capability selects `provider: http-speech` and places its parameters in the matching `http-speech` section. Set the Qwen voice under `tts.http-speech.qwen.voice`. STT and TTS each select `backend: qwen` or `backend: service`. Speech parameters are read exclusively from `stt.http-speech` and `tts.http-speech`; plugin settings contain service management, authentication and realtime bridge options.
+
+### 3. Optional local service
+
+First install and start [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service#快速启动). To use its HTTP API, configure the capability endpoints:
+
+```yaml
+stt:
+  enabled: true
+  provider: http-speech
+  http-speech:
+    backend: service
+    service_url: http://127.0.0.1:8000/stt
+tts:
+  provider: http-speech
+  http-speech:
+    backend: service
+    service_url: http://127.0.0.1:8000/tts
 plugins:
   entries:
     hermes-speech:
       settings:
-        backend: qwen
+        service:
+          url: http://127.0.0.1:8000
+          managed: false
+          token_env: HERMES_SPEECH_SERVICE_TOKEN
 ```
 
-Both Hermes capabilities use the same provider ID, `http-speech`. The plugin's `backend` selects `qwen` or `service` for both. Optional `settings.stt.backend` or `settings.tts.backend` overrides allow mixed deployments. Qwen model and voice options belong under `settings.stt.qwen` or `settings.tts.qwen`. All speech backend options are read exclusively from `plugins.entries.hermes-speech.settings`.
-
-### 3. Optional local service
-
-First install and start [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service#快速启动). The plugin sends audio and synthesis requests to its HTTP API; selecting `service` requires that deployment to be available.
-
-Use this plugin settings block for an independently running service:
-
-```yaml
-backend: service
-service:
-  url: http://127.0.0.1:8000
-  managed: false
-  token_env: HERMES_SPEECH_SERVICE_TOKEN
-```
-
-Place it under `plugins.entries.hermes-speech.settings`. Set `HERMES_SPEECH_SERVICE_TOKEN` in the active profile's environment when authentication is enabled. Remote service URLs require HTTPS. For optional process management, configure `service.managed`, `service.path`, and `service.python` for your own deployment.
+Set `HERMES_SPEECH_SERVICE_TOKEN` in the active profile's environment when authentication is enabled. The plugin's `service.url` identifies the root allowed to receive that credential; keep it aligned with the STT/TTS service endpoints. Remote service URLs require HTTPS. For optional process management, configure `service.managed`, `service.path`, and `service.python` under plugin settings.
 
 ### 4. Optional realtime bridge
 

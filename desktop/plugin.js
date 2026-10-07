@@ -641,9 +641,8 @@ function installChainedTransport(ctx, host) {
           const response = await bounded(host.requestProfile(route, 'config.get', {key:'full'}, 2000))
           const cfg = response?.config
           const activeMatches = () => (host.state.connectionId?.get() || 'local') === (owner.connectionId || 'local') && host.state.profile?.get() === owner.profile
-          const speech = cfg?.plugins?.entries?.['hermes-speech']?.settings || {}
-          const speechTts = speech.tts || {}
-          const backend = speechTts.backend ?? speech.backend ?? 'service'
+          const speechTts = cfg?.tts?.['http-speech'] || {}
+          const backend = speechTts.backend ?? 'service'
           if (cfg?.tts?.provider === 'http-speech' && backend === 'qwen' && speechTts.streaming !== false && cfg.tts.streaming !== false && cfg.tts.streaming?.enabled !== false && [undefined,'','http-speech'].includes(cfg.tts.streaming?.provider) && (cfg.voice?.voice_chat_mode || 'chained') === 'chained' && activeMatches() && ctx.rest) {
             const scope = await bounded(ctx.rest('/transport-scope', {timeoutMs:2000}))
             if (!activeMatches() || !scope?.qwen_enabled || !['127.0.0.1','localhost'].includes(scope.host) || Number(url.port || 80) !== scope.port || url.pathname !== scope.path || requestedProfile !== scope.profile) throw new Error('unrelated WebSocket owner')

@@ -9,15 +9,15 @@ from hermes_speech_plugin import chained_stream
 
 class ProviderRoutingTests(unittest.TestCase):
     def test_unified_scope_respects_backend_streaming_and_provider(self):
-        base = {"tts": {"provider": "http-speech", "streaming": {"provider": "http-speech"}},
-                "plugins": {"entries": {"hermes-speech": {"settings": {"backend": "qwen"}}}}}
+        base = {"tts": {"provider": "http-speech", "streaming": {"provider": "http-speech"},
+                        "http-speech": {"backend": "qwen"}}}
         request = Request({"type": "http", "scheme": "http", "server": ("127.0.0.1", 8765),
                            "path": "/api/plugins/hermes-speech/transport-scope", "headers": []})
         cases = [(base, True)]
         for update in ("service", "disabled", "other-provider"):
             config = copy.deepcopy(base)
             if update == "service":
-                config["plugins"]["entries"]["hermes-speech"]["settings"]["backend"] = "service"
+                config["tts"]["http-speech"]["backend"] = "service"
             elif update == "disabled":
                 config["tts"]["streaming"]["enabled"] = False
             else:

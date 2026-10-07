@@ -29,15 +29,14 @@ def validate_service_url(url):
 def provider_config(kind, full=None):
     if kind not in ("stt", "tts"):
         raise ValueError("Unknown speech capability")
-    unified = settings(full)
-    selected = unified.get(kind) or {}
-    backend = selected.get("backend", unified.get("backend", "service"))
+    full = load_full() if full is None else full
+    selected = (full.get(kind) or {}).get(PROVIDER_ID) or {}
+    backend = selected.get("backend", "service")
     if backend not in ("qwen", "service"):
         raise ValueError("Unsupported speech backend: " + str(backend))
     result = {k: deepcopy(v) for k, v in selected.items() if k != "provider"}
     result["backend"] = "qwen" if backend == "qwen" else "local"
     result["qwen"] = deepcopy(selected.get("qwen") or {})
     if backend == "service":
-        service = unified.get("service") or {}
-        result["service_url"] = validate_service_url(service.get("url", "http://127.0.0.1:8000")) + "/" + kind
+        result["service_url"] = validate_service_url(selected.get("service_url", "http://127.0.0.1:8000/" + kind))
     return result

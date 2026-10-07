@@ -102,7 +102,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
             return {
                 "success": False,
                 "transcript": "",
-                "error": "http-speech STT service URL is not configured (plugins.entries.hermes-speech.settings.service.url)",
+                "error": "http-speech STT service URL is not configured (stt.http-speech.service_url)",
                 "provider": self.name,
             }
         lang = language or cfg.get("language", "auto")

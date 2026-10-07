@@ -31,7 +31,7 @@ class NativePluginTests(unittest.TestCase):
         from fastapi.testclient import TestClient
         from hermes_speech_plugin import config, events_runtime
         source = Path(__file__).resolve().parents[1]
-        full = {"plugins": {"entries": {"hermes-speech": {"settings": {"backend": "service"}}}}}
+        full = {kind: {"provider": "http-speech", "http-speech": {"backend": "service"}} for kind in ("stt", "tts")}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             target = root / "plugins" / "hermes-speech"
