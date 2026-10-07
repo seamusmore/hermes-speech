@@ -2,6 +2,8 @@
 
 Speech plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). Provides transcription, speech synthesis, and desktop voice through Qwen APIs or an independently deployed Hermes Speech Service.
 
+**Local speech requires [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service).** Deploy that service with its models and inference dependencies before selecting `service` for STT or TTS. Qwen-only configurations use Qwen APIs directly.
+
 ## Features
 
 - **Independent providers**: Select Qwen or Hermes Speech Service separately for STT and TTS.
@@ -13,7 +15,7 @@ Speech plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). 
 
 - Hermes Agent with backend plugin support. Desktop voice also requires the Hermes desktop app.
 - Python dependencies are declared in `plugin.yaml` and installed by Hermes PM during plugin installation or enablement: `audioop-lts==0.2.2` on Python 3.13+ and `av==18.1.0`.
-- A Qwen API account or a reachable Hermes Speech Service deployment. Model weights and inference environments are managed by that service.
+- A Qwen API account or a reachable [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service) deployment. For local speech, follow the service repository's installation instructions first; it manages the model weights and inference environment.
 
 ## Installation
 
@@ -72,6 +74,8 @@ plugins:
 Each capability accepts `qwen` or `service`. Existing `stt.http_stt` and `tts.http_tts` options remain compatible. Qwen model and voice overrides belong under the corresponding capability's `qwen` mapping.
 
 ### 3. Optional local service
+
+First install and start [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service#快速启动). The plugin sends audio and synthesis requests to its HTTP API; selecting `service` requires that deployment to be available.
 
 Use this plugin settings block for an independently running service:
 
