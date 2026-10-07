@@ -1,0 +1,8 @@
+name: hermes-speech
+version: 3.0.0
+description: "Unified speech API client: Qwen and Hermes Speech Service are peer providers"
+author: seamusmore
+kind: backend
+pip_dependencies:
+  - 'audioop-lts==0.2.2; python_version >= "3.13"'
+  - av==18.1.0

@@ -1,0 +1,2 @@
+"""Speech API provider adapters."""
+

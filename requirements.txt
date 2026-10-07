@@ -1,0 +1,10 @@
+# Install in the Hermes environment if these optional speech dependencies are absent.
+requests>=2.31
+websockets>=14
+numpy>=1.24
+onnxruntime>=1.17
+aiohttp>=3.9
+soundfile>=0.12
+# Installer only:
+PyYAML>=6
+
