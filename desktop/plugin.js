@@ -1278,6 +1278,8 @@ function mountPanel(element,controller,{preview=false}={}){
  const render=()=>{
   if(interacting)return;
   const c=controller,last=c.turns?.at(-1),input=last?.input,report=c.report(),p95=report.summary.p95_speech_to_pcm_ms;
+  const owner=c.owner||c.selection;
+  const sessionLabel=owner?(owner.sessionId?`绑定会话 ${escape(owner.sessionId.slice(0,12))}`:'新会话 · 首次发言后创建'):'';
   const prev=wrap.querySelector('.timeline')?.scrollTop||0;
   const html=`<div class="header"><div><div class="eyebrow">HERMES · INDEPENDENT CHAINED</div><h1>说话，自然接上。</h1><p>持续收音 · 可恢复打断 · 每轮都有证据</p></div><span class="badge">${preview?'离线预览':escape(c.state)}</span></div>
   ${preview?'<div class="notice">此页面演示独立插件界面与本地状态机。真实麦克风、Hermes 回复和云端延迟请在桌面插件中验证。</div>':''}
@@ -1288,7 +1290,7 @@ function mountPanel(element,controller,{preview=false}={}){
   ${tab==='demo'?`<div class="notice">使用合成帧和模拟回复事件验证控制逻辑；此处通过数与真实云端性能分别记录。</div><button data-action="run-demo">运行离线验证</button>${demo?demo.checks.map(x=>`<div class="check"><span class="tick">${x.ok?'✓':'×'}</span><div>${escape(x.name)}<div class="detail">${escape(x.detail)}</div></div></div>`).join(''):''}`:''}
   ${c.error?`<div class="error">${escape(c.error)}</div>`:''}
   <div class="tools"><button class="primary" data-action="start" ${preview||c.running||c.starting?'disabled':''}>${c.starting?'连接中…':'开始独立语音'}</button><button data-action="stop" ${!c.running&&!c.starting?'disabled':''}>结束语音</button><button data-action="interrupt" ${!c.running?'disabled':''}>立即打断</button><button data-action="probe" ${preview||c.running||c.starting?'disabled':''}>检查连接</button><button data-action="export">导出诊断</button></div>
-  <div class="footer"><span>${(c.owner||c.selection)?`绑定会话 ${escape((c.owner||c.selection).sessionId.slice(0,12))} · ${escape((c.owner||c.selection).profile)}`:'先打开 Hermes 会话，再从右侧独立语音面板开始。'}</span><span>使用前请结束原生语音通话 · 日志导出省略对话正文</span></div>`;
+  <div class="footer"><span>${owner?`${sessionLabel} · ${escape(owner.profile)}`:'先打开 Hermes 会话，再从右侧独立语音面板开始。'}</span><span>使用前请结束原生语音通话 · 日志导出省略对话正文</span></div>`;
   if(html===lastHTML)return;lastHTML=html;wrap.innerHTML=html;
   const cards=wrap.querySelector('.cards');wrap.insertBefore(wrap.querySelector('.tools'),cards);wrap.insertBefore(wrap.querySelector('.footer'),cards);
   const timeline=wrap.querySelector('.timeline');if(timeline)timeline.scrollTop=prev;
