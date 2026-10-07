@@ -112,7 +112,7 @@ class LifecycleTests(unittest.TestCase):
             self.assertIsNotNone(child.poll());self.assertIsNone(manager.child)
     def test_missing_credentials_fail_before_spawn(self):
         manager=self.manager(config=BridgeConfig("",workspace_id="x",local_token="local"))
-        with self.assertRaisesRegex(BridgeStartupError,"DASHSCOPE_API_KEY is required"):manager.ensure()
+        with self.assertRaisesRegex(BridgeStartupError,"qwen.api_key_env is required"):manager.ensure()
         self.assertIsNone(manager.child)
     def worker(self):
         script=self.root/'owner.py'

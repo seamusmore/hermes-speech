@@ -1,7 +1,7 @@
 {
   "name": "hermes-speech",
   "label": "Hermes Speech",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "api": "plugin_api.py",
   "tab": { "hidden": true },
   "entry": "index.js"

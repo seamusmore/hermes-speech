@@ -14,7 +14,7 @@ def activate():
     owner = object()
     with _mutex:
         if _manager is None or _manager.closed.is_set():
-            _manager = BridgeManager(BridgeConfig.from_env())
+            _manager = BridgeManager(BridgeConfig.from_config())
         _owners.add(owner)
         manager = _manager
     def unload():

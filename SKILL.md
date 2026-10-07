@@ -24,7 +24,7 @@ Restart the gateway after installation. Enable the desktop component in the Herm
 
 Follow README.md for provider settings. Keep API keys in the active Hermes profile's secret store or `.env`. Use placeholders in shared examples and redact credentials, transcripts, session identifiers, and local account paths from diagnostics.
 
-Set both `stt.provider` and `tts.provider` to `http-speech`. Place provider parameters under `stt.http-speech` and `tts.http-speech`, each with `backend: qwen` or `backend: service`. Qwen options belong under the corresponding `qwen` mapping. Plugin settings hold service management, authentication and bridge options. Qwen and Hermes Speech Service are independent API providers. Local model weights and inference environments belong to the service deployment.
+Set both `stt.provider` and `tts.provider` to `http-speech`. Place provider parameters under `stt.http-speech` and `tts.http-speech`, each with `backend: qwen` or `backend: service`. Qwen options belong under the corresponding `qwen` mapping. Service management and authentication belong under each provider's `service` mapping. GPT-Live client and bridge parameters belong under `voice.gpt_live`, with cloud options in `voice.gpt_live.qwen`. Credentials use Hermes' standard secret API. Qwen and Hermes Speech Service are independent API providers. Local model weights and inference environments belong to the service deployment.
 
 ## Troubleshooting
 

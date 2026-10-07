@@ -43,7 +43,7 @@ class NativePluginTests(unittest.TestCase):
             runtime.shutdown()
             with patch.object(config, "load_full", return_value=full), \
                  patch.object(runtime, "BridgeManager", factory), \
-                 patch.object(runtime.BridgeConfig, "from_env", return_value=CONFIG), \
+                 patch.object(runtime.BridgeConfig, "from_config", return_value=CONFIG), \
                  patch.object(events_runtime, "activate"):
                 manifest = next(m for m in manager._scan_directory(root/"plugins", "user") if m.name == "hermes-speech")
                 try:

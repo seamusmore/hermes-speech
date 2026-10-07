@@ -6,14 +6,12 @@ import argparse
 import hashlib
 import hmac
 import json
-import os
 import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from typing import Callable, Mapping, Optional, Tuple
 from uuid import uuid4
 
@@ -23,24 +21,6 @@ SERVICE_ID = "hermes-qwen-realtime-bridge"
 HEALTH_VERSION = 1
 
 SUPPORTED_REALTIME_MODELS = (REALTIME_MODEL, "qwen-audio-3.1-realtime-plus")
-
-
-def _env_file_values(path: str) -> dict[str, str]:
-    values: dict[str, str] = {}
-    source = os.path.expandvars(path).strip()
-    if not source or not os.path.isfile(source):
-        return values
-    with open(source, "r", encoding="utf-8-sig") as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            name, value = line.split("=", 1)
-            value = value.strip()
-            if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-                value = value[1:-1]
-            values[name.strip()] = value
-    return values
 
 
 @dataclass(frozen=True)
@@ -54,32 +34,30 @@ class BridgeConfig:
     endpoint_url: str = ""
 
     @classmethod
-    def from_env(cls) -> "BridgeConfig":
-        env_file = os.getenv("HERMES_SPEECH_ENV_FILE", str(Path(os.getenv("HERMES_HOME", str(Path.home()/".hermes"))) / ".env"))
-        saved = _env_file_values(env_file)
-        from .config import settings
-        configured_file = (settings().get("bridge") or {}).get("environment_file")
-        if configured_file:
-            saved.update(_env_file_values(str(configured_file)))
-        saved.update(_env_file_values(str(Path(__file__).resolve().parents[1] / ".env")))
-        value = lambda name, default="": os.getenv(name, saved.get(name, default)).strip()
+    def from_config(cls) -> "BridgeConfig":
+        from .config import load_full
+        live = (load_full().get("voice") or {}).get("gpt_live") or {}
+        qwen = live.get("qwen") or {}
+        from agent.secret_scope import get_secret_str
+        def secret(name):
+            return get_secret_str(name).strip()
         return cls(
-            api_key=value("DASHSCOPE_API_KEY"),
-            workspace_id=value("DASHSCOPE_WORKSPACE_ID"),
-            region=value("QWEN_REGION", "beijing"),
-            local_token=value("HERMES_SPEECH_BRIDGE_TOKEN"),
-            model=value("QWEN_REALTIME_MODEL", REALTIME_MODEL),
-            timeout_seconds=float(value("QWEN_SIGNAL_TIMEOUT_SECONDS", "30")),
-            endpoint_url=value("QWEN_WEBRTC_ENDPOINT"),
+            api_key=secret(str(qwen.get("api_key_env", "DASHSCOPE_API_KEY"))),
+            workspace_id=str(qwen.get("workspace_id") or secret("DASHSCOPE_WORKSPACE_ID")),
+            region=str(qwen.get("region", "beijing")),
+            local_token=str(live.get("api_key") or ""),
+            model=str(live.get("model") or REALTIME_MODEL),
+            timeout_seconds=float(qwen.get("timeout_seconds", 30)),
+            endpoint_url=str(qwen.get("endpoint_url") or ""),
         )
 
     def validate(self) -> None:
         if not self.api_key:
-            raise RuntimeError("DASHSCOPE_API_KEY is required")
+            raise RuntimeError("The cloud API key selected by voice.gpt_live.qwen.api_key_env is required")
         if self.model not in SUPPORTED_REALTIME_MODELS:
             raise ValueError(f"Unsupported Qwen Realtime model: {self.model}")
         if not self.workspace_id and not self.endpoint_url:
-            raise ValueError("WebRTC requires DASHSCOPE_WORKSPACE_ID or QWEN_WEBRTC_ENDPOINT; the DashScope public domain supports WebSocket only")
+            raise ValueError("WebRTC requires voice.gpt_live.qwen.workspace_id or endpoint_url")
 
     @property
     def upstream_url(self) -> str:
@@ -230,7 +208,7 @@ def create_handler(config: BridgeConfig, exchange: Exchange = exchange_sdp, *, i
 def serve(host: str, port: int, config: Optional[BridgeConfig] = None) -> None:
     if host != "127.0.0.1":
         raise ValueError("Bridge must bind to 127.0.0.1")
-    active = config or BridgeConfig.from_env()
+    active = config or BridgeConfig.from_config()
     server = ThreadingHTTPServer((host, port), create_handler(active))
     print(f"Hermes Qwen signaling bridge listening on http://{host}:{port}")
     print(f"Realtime model: {active.model}")

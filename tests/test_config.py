@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from hermes_speech_plugin.config import provider_config, settings, validate_service_url
+from hermes_speech_plugin.config import provider_config, validate_service_url
 from hermes_speech_plugin import http_client
 
 
@@ -23,7 +23,7 @@ class ConfigTests(unittest.TestCase):
                     self.assertEqual(provider_config(kind, cfg)["service_url"], "http://127.0.0.1:8000/" + kind)
 
     def test_mixed_backends_and_explicit_service_endpoint(self):
-        cfg = self.config({"backend": "service", "service_url": "https://voice.example/api/stt/"},
+        cfg = self.config({"backend": "service", "service": {"url": "https://voice.example/api/"}},
                           {"backend": "qwen", "qwen": {"voice": "current"}})
         self.assertEqual(provider_config("stt", cfg)["service_url"], "https://voice.example/api/stt")
         self.assertEqual(provider_config("tts", cfg)["backend"], "qwen")
@@ -61,11 +61,56 @@ class ConfigTests(unittest.TestCase):
 
     def test_qwen_does_not_require_the_local_service(self):
         from hermes_speech_plugin import local_service
-        with patch.object(local_service, "settings", return_value={"service": {"managed": True}}), \
-             patch.object(local_service, "provider_config", return_value={"backend": "qwen"}), \
+        with patch("hermes_speech_plugin.config.load_full", return_value=self.config({"backend": "qwen", "service": {"managed": True}}, {"backend": "qwen"})), \
              patch.object(local_service.subprocess, "Popen") as spawn:
             local_service.activate(object())
             spawn.assert_not_called()
+
+    def test_service_credentials_stay_with_configured_endpoint(self):
+        cfg = self.config(stt={"backend": "service", "service": {
+            "url": "https://speech.example/private", "token_env": "STT_TOKEN"}},
+            tts={"backend": "qwen"})
+        with patch("hermes_speech_plugin.config.load_full", return_value=cfg), \
+             patch("agent.secret_scope.get_secret_str", return_value="scoped-token") as secret:
+            self.assertEqual(http_client.headers_for("https://speech.example/private/stt/transcribe"),
+                             {"Authorization": "Bearer scoped-token"})
+            secret.assert_called_with("STT_TOKEN")
+            for url in ("https://other.example/private", "https://speech.example/private-other", "http://speech.example/private"):
+                self.assertEqual(http_client.headers_for(url), {})
+
+    def test_service_management_uses_each_capability_settings(self):
+        from hermes_speech_plugin import local_service
+        cfg = self.config(stt={"backend": "service", "service": {"url": "http://127.0.0.1:8000", "managed": True}},
+                          tts={"backend": "qwen", "service": {"managed": True}})
+        with patch("hermes_speech_plugin.config.load_full", return_value=cfg), \
+             patch.object(local_service, "_activate_service") as activate:
+            local_service.activate(object())
+            self.assertEqual(activate.call_args_list[0].args[1], cfg["stt"]["http-speech"]["service"])
+            self.assertEqual(activate.call_args_list[1].args[1], {})
+
+    def test_realtime_reads_voice_config_and_scoped_cloud_secret(self):
+        from hermes_speech_plugin.signal_bridge import BridgeConfig
+        cfg = {"voice": {"gpt_live": {"model": "qwen-audio-3.1-realtime-plus",
+               "api_key": "local-bridge-token", "qwen": {"api_key_env": "CUSTOM_QWEN_KEY",
+               "workspace_id": "workspace", "region": "singapore", "timeout_seconds": 42}}}}
+        with patch("hermes_speech_plugin.config.load_full", return_value=cfg), \
+             patch("agent.secret_scope.get_secret_str", return_value="scoped-cloud-key") as secret:
+            bridge = BridgeConfig.from_config()
+            secret.assert_called_once_with("CUSTOM_QWEN_KEY")
+            self.assertEqual(bridge.api_key, "scoped-cloud-key")
+            self.assertEqual(bridge.local_token, "local-bridge-token")
+            self.assertEqual(bridge.model, cfg["voice"]["gpt_live"]["model"])
+            self.assertEqual(bridge.timeout_seconds, 42)
+            self.assertIn("workspace.ap-southeast-1", bridge.upstream_url)
+
+    def test_realtime_does_not_fall_back_outside_secret_scope(self):
+        from hermes_speech_plugin.signal_bridge import BridgeConfig
+        with patch("hermes_speech_plugin.config.load_full", return_value={}), \
+             patch("agent.secret_scope.get_secret_str", return_value=""), \
+             patch.dict("os.environ", {"DASHSCOPE_API_KEY": "foreign-key", "HERMES_SPEECH_BRIDGE_TOKEN": "old-token"}):
+            bridge = BridgeConfig.from_config()
+            self.assertEqual(bridge.api_key, "")
+            self.assertEqual(bridge.local_token, "")
 
     def test_http_stream_credentials_are_captured_by_caller(self):
         with patch.object(http_client, "headers_for", side_effect=AssertionError("profile lost")), \

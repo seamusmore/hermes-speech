@@ -2,20 +2,28 @@
 import os
 from urllib.parse import urlsplit
 import requests as _requests
-from .config import settings
+from .config import service_settings
 RequestException = _requests.RequestException
 exceptions = _requests.exceptions
 
 
 def headers_for(url):
-    service = settings().get("service") or {}
-    base = service.get("url", "http://127.0.0.1:8000").rstrip("/")
     target = urlsplit(url)
-    expected = urlsplit(base)
-    if (target.scheme, target.netloc) != (expected.scheme, expected.netloc):
+    matches = []
+    for kind in ("stt", "tts"):
+        service = service_settings(kind)
+        if not service:
+            continue
+        base = service.get("url", "http://127.0.0.1:8000").rstrip("/")
+        expected = urlsplit(base)
+        if (target.scheme, target.netloc) != (expected.scheme, expected.netloc):
+            continue
+        if target.path != expected.path and not target.path.startswith(expected.path.rstrip("/") + "/"):
+            continue
+        matches.append((len(expected.path), service))
+    if not matches:
         return {}
-    if target.path != expected.path and not target.path.startswith(expected.path.rstrip("/") + "/"):
-        return {}
+    service = max(matches, key=lambda item: item[0])[1]
     name = service.get("token_env", "HERMES_SPEECH_SERVICE_TOKEN")
     try:
         from agent.secret_scope import get_secret_str

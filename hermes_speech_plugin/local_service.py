@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import threading
 from urllib.parse import urlsplit
-from .config import provider_config, settings
+from .config import service_settings
 
 _lock = threading.RLock()
 _owned = {}
@@ -33,8 +33,12 @@ def shutdown():
 
 
 def activate(ctx):
-    options = settings().get("service") or {}
-    if not options.get("managed") or all(provider_config(k)["backend"] == "qwen" for k in ("stt", "tts")):
+    for kind in ("stt", "tts"):
+        _activate_service(ctx, service_settings(kind))
+
+
+def _activate_service(ctx, options):
+    if not options.get("managed"):
         return
     base = options.get("url", "http://127.0.0.1:8000").rstrip("/")
     url = urlsplit(base)

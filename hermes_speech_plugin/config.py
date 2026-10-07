@@ -11,12 +11,6 @@ def load_full():
     return load_config()
 
 
-def settings(full=None):
-    full = load_full() if full is None else full
-    entry = ((full.get("plugins") or {}).get("entries") or {}).get(PLUGIN_ID) or {}
-    return deepcopy(entry.get("settings") or {})
-
-
 def validate_service_url(url):
     parsed = urlsplit(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
@@ -38,5 +32,10 @@ def provider_config(kind, full=None):
     result["backend"] = "qwen" if backend == "qwen" else "local"
     result["qwen"] = deepcopy(selected.get("qwen") or {})
     if backend == "service":
-        result["service_url"] = validate_service_url(selected.get("service_url", "http://127.0.0.1:8000/" + kind))
+        result["service_url"] = validate_service_url((selected.get("service") or {}).get("url", "http://127.0.0.1:8000")) + "/" + kind
     return result
+
+
+def service_settings(kind, full=None):
+    config = provider_config(kind, full)
+    return deepcopy(config.get("service") or {}) if config["backend"] == "local" else {}

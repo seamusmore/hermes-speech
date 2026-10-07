@@ -150,7 +150,7 @@ class LocalHttpTTSProvider(TTSProvider):
         service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
         if not service_url:
             raise RuntimeError(
-                "http-speech TTS service URL is not configured (tts.http-speech.service_url)"
+                "http-speech TTS service URL is not configured (tts.http-speech.service.url)"
             )
 
         use_voice = voice or cfg.get("voice", "中文女")
@@ -223,7 +223,7 @@ class LocalHttpTTSProvider(TTSProvider):
         service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
         if not service_url:
             raise RuntimeError(
-                "http-speech TTS service URL is not configured (tts.http-speech.service_url)"
+                "http-speech TTS service URL is not configured (tts.http-speech.service.url)"
             )
 
         use_voice = voice or cfg.get("voice", "")

@@ -41,19 +41,11 @@ The enable command synchronizes declared dependencies. Then configure and restar
 
 ## Configuration
 
-### 1. API credentials
+Use the active Hermes profile's `config.yaml` for parameters and Hermes' standard secret store/environment for cloud credentials. The plugin uses Hermes' profile-scoped secret API. It does not open its own `.env` files or read speech parameters from `plugins.entries.hermes-speech.settings`.
 
-For Qwen, add your key to the active Hermes profile's secret store or `.env`:
+### Qwen STT and TTS
 
-```dotenv
-DASHSCOPE_API_KEY=your_api_key
-```
-
-Keep credentials outside the repository. Shared examples should use placeholders.
-
-### 2. Select providers
-
-Merge the following settings into the active profile's `config.yaml`:
+Put `DASHSCOPE_API_KEY` in the active profile's Hermes environment or secret store. Then merge this example into `config.yaml`:
 
 ```yaml
 stt:
@@ -65,6 +57,8 @@ stt:
       model: qwen-audio-3.1-asr-flash-streaming
       region: beijing
       api_key_env: DASHSCOPE_API_KEY
+      chunk_ms: 100
+      pace_realtime: false
 tts:
   provider: http-speech
   http-speech:
@@ -73,16 +67,58 @@ tts:
       model: qwen-audio-3.1-tts-flash
       region: beijing
       api_key_env: DASHSCOPE_API_KEY
-      format: pcm
+      voice: your_supported_voice_id
       sample_rate: 24000
       rate: 1.0
 ```
 
-Each capability selects `provider: http-speech` and places its parameters in the matching `http-speech` section. Set the Qwen voice under `tts.http-speech.qwen.voice`. STT and TTS each select `backend: qwen` or `backend: service`. Speech parameters are read exclusively from `stt.http-speech` and `tts.http-speech`; plugin settings contain service management, authentication and realtime bridge options.
+`stt.provider` selects `stt.http-speech`; `tts.provider` selects `tts.http-speech`. Each `backend` accepts `qwen` or `service` (default: `service`). Both capabilities can select their backend independently.
 
-### 3. Optional local service
+The following options go inside each capability's `http-speech.qwen` mapping:
 
-First install and start [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service#快速启动). To use its HTTP API, configure the capability endpoints:
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `model` | STT: `qwen-audio-3.0-asr-flash-streaming`; TTS: `qwen-audio-3.1-tts-flash` | Supported STT models: 3.0/3.1 `asr-flash-streaming`; supported TTS models: 3.0/3.1 `tts-flash`. Examples explicitly select 3.1. |
+| `region` | `beijing` | `beijing` / `cn-beijing` or `singapore` / `ap-southeast-1`. |
+| `api_key_env` | `DASHSCOPE_API_KEY` | Name resolved through Hermes' secret API. |
+| `api_key` | unset | Optional explicit credential or `${SECRET_NAME}` reference; prefer `api_key_env`. |
+| `workspace_id` | Hermes `DASHSCOPE_WORKSPACE_ID`, otherwise empty | Optional workspace-specific endpoint. |
+| `websocket_url` | Derived from region/workspace | Explicit WebSocket endpoint; otherwise checks the Hermes secret API for `QWEN_ASR_WEBSOCKET_URL` / `QWEN_TTS_WEBSOCKET_URL`. |
+| `timeout_seconds` | `60` | Request timeout in seconds. |
+| `connect_timeout_seconds` | `3` | Connection timeout; capped at 5 seconds. |
+| `idle_seconds` | `30` | Warm connection idle lifetime; capped at 50 seconds. |
+
+Additional STT options under `stt.http-speech.qwen`:
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `chunk_ms` | `100` | Audio upload chunk duration. |
+| `pace_realtime` | `false` | Pace file uploads at audio playback speed. |
+| `vocabulary` | `{}` | Qwen vocabulary/hotword request object. `hotwords` is an alternate input name. |
+| `context` | unset | Qwen recognition context passed in the request. |
+| `silence_gate_enabled` | `true` | Reject recordings without sufficient speech evidence. |
+| `silence_frame_ms` | `20` | Evidence frame duration. |
+| `silence_rms_threshold` | `180` | Frame RMS threshold. |
+| `silence_peak_threshold` | `1000` | Frame peak threshold. |
+| `silence_recording_rms_threshold` | `350` | Whole-recording RMS threshold. |
+| `silence_min_voiced_ms` | `200` | Minimum cumulative voiced duration. |
+| `silence_min_consecutive_ms` | `80` | Minimum consecutive voiced duration. |
+
+Additional TTS options under `tts.http-speech.qwen`:
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `voice` | required | Voice ID supported by the selected Qwen model. |
+| `sample_rate` | `24000` | Streaming playback requires 24000 Hz. |
+| `rate` | `1.0` | Speech rate, supported range 0.5–2.0. |
+| `volume` | `50` | Volume passed to Qwen. |
+| `pitch` | `1` | Pitch multiplier passed to Qwen. |
+
+Qwen streaming audio is fixed to PCM; a `qwen.format` setting does not change that transport. Hermes controls final file/output formats. To opt out of the plugin's Chained transport, set `tts.http-speech.streaming: false`; Hermes' `tts.streaming` controls also apply.
+
+### Local speech service
+
+Deploy [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service#快速启动), then select `backend: service`. All service settings live under the matching provider:
 
 ```yaml
 stt:
@@ -90,35 +126,75 @@ stt:
   provider: http-speech
   http-speech:
     backend: service
-    service_url: http://127.0.0.1:8000/stt
+    language: auto
+    service:
+      url: http://127.0.0.1:8000
+      token_env: HERMES_SPEECH_SERVICE_TOKEN
+      managed: false
 tts:
   provider: http-speech
   http-speech:
     backend: service
-    service_url: http://127.0.0.1:8000/tts
-plugins:
-  entries:
-    hermes-speech:
-      settings:
-        service:
-          url: http://127.0.0.1:8000
-          managed: false
-          token_env: HERMES_SPEECH_SERVICE_TOKEN
+    model: cosyvoice3
+    voice: your_service_voice_id
+    language: zh
+    service:
+      url: http://127.0.0.1:8000
+      token_env: HERMES_SPEECH_SERVICE_TOKEN
+      managed: false
 ```
 
-Set `HERMES_SPEECH_SERVICE_TOKEN` in the active profile's environment when authentication is enabled. The plugin's `service.url` identifies the root allowed to receive that credential; keep it aligned with the STT/TTS service endpoints. Remote service URLs require HTTPS. For optional process management, configure `service.managed`, `service.path`, and `service.python` under plugin settings.
+| Location / parameter | Default | Meaning |
+| --- | --- | --- |
+| `http-speech.service.url` | `http://127.0.0.1:8000` | Service root. The plugin appends `/stt` or `/tts`. Remote services require HTTPS. |
+| `http-speech.service.token_env` | `HERMES_SPEECH_SERVICE_TOKEN` | Hermes secret name for service authentication; empty/unset secret sends no bearer token. Credentials are restricted to the configured service origin and path. |
+| `http-speech.service.managed` | `false` | Start/stop a local service process with the plugin. Only a loopback root URL is supported. |
+| `http-speech.service.path` | required when managed | Service checkout directory containing `run.py`. |
+| `http-speech.service.python` | required when managed | Absolute service Python executable, e.g. `/srv/hermes-speech-service/venv/bin/python`. |
+| `http-speech.service.environment` | `{}` | Additional environment variables for the managed child process. |
+| `stt.http-speech.model` | service default | Optional service recognition model. |
+| `stt.http-speech.language` | `auto` | Recognition language hint. |
+| `tts.http-speech.model` | `cosyvoice3` | Service synthesis engine. |
+| `tts.http-speech.voice` | endpoint-dependent | Service voice ID; set explicitly for predictable synthesis. |
+| `tts.http-speech.language` | `zh` | Synthesis language. |
 
-### 4. Optional realtime bridge
+When STT and TTS share one managed service, use matching `url`, `path`, `python`, credentials and `environment`; the plugin shares ownership of the process. `service` settings are inactive while that capability selects `backend: qwen`. Keep an alternative service block commented out if you want a ready-to-use template. Reference-audio cloning options are configured in the service; this plugin does not forward arbitrary `prompt_wav`/`prompt_text` settings.
 
-The Qwen realtime bridge uses these environment variables:
+### GPT-Live / Qwen realtime
 
-```dotenv
-DASHSCOPE_WORKSPACE_ID=your_workspace_id
-HERMES_SPEECH_BRIDGE_TOKEN=your_local_bridge_token
-QWEN_REGION=beijing
+All realtime parameters belong under `voice.gpt_live`. The local signaling bridge reads the same model and local token as the Hermes client:
+
+```yaml
+voice:
+  voice_chat_mode: gpt-live
+  gpt_live:
+    model: qwen-audio-3.1-realtime-plus
+    voice: your_supported_realtime_voice_id
+    base_url: http://127.0.0.1:8765/v1
+    api_key: your_random_local_bridge_token
+    qwen:
+      api_key_env: DASHSCOPE_API_KEY
+      workspace_id: your_qwen_workspace_id
+      region: beijing
+      timeout_seconds: 30
+      # endpoint_url: https://your-workspace-host/api/v1/webrtc/realtime
 ```
 
-Supply the workspace required by your Qwen realtime deployment, or configure its endpoint with `QWEN_WEBRTC_ENDPOINT`. `bridge.environment_file` can point to a separate local environment file. Select the supported Qwen realtime model in the Hermes voice settings.
+| Parameter under `voice.gpt_live` | Default / requirement | Meaning |
+| --- | --- | --- |
+| `model` | `qwen-audio-3.0-realtime-flash` when absent | Supports this model and `qwen-audio-3.1-realtime-plus`; set explicitly for both client and bridge. |
+| `voice` | Choose a model-supported voice | Passed by the Hermes client in the realtime session request. |
+| `base_url` | Use `http://127.0.0.1:8765/v1` | Local signaling bridge. The current desktop integration uses port 8765. |
+| `api_key` | Set a random local token | Authenticates Hermes to the local bridge. The bridge reads this exact value for validation. |
+| `qwen.api_key_env` | `DASHSCOPE_API_KEY` | Hermes secret name for the cloud Qwen API key. |
+| `qwen.workspace_id` | Hermes `DASHSCOPE_WORKSPACE_ID` | Workspace for the WebRTC API host; required unless `endpoint_url` is supplied. |
+| `qwen.region` | `beijing` | Beijing or Singapore, using the same region aliases as STT/TTS. |
+| `qwen.endpoint_url` | Derived from workspace/region | Explicit WebRTC signaling endpoint. |
+| `qwen.timeout_seconds` | `30` | Upstream signaling timeout. |
+
+There are two credentials: `voice.gpt_live.api_key` protects the local bridge, and the secret named by `qwen.api_key_env` authenticates cloud requests. Only the cloud credential is sent upstream. Generate a local token with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and paste it into `voice.gpt_live.api_key`.
+
+Other `voice` fields such as `record_key`, `max_recording_seconds`, `auto_tts`, `beep_enabled`, `silence_threshold`, `silence_duration`, `barge_in`, `stop_phrases`, and `thinking_sound` belong to Hermes. They control recording, playback and interaction according to the active voice mode; retain your existing values. They are separate from the Qwen signaling parameters above.
 
 ## Desktop and Cloud
 
