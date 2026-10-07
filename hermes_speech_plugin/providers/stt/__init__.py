@@ -23,12 +23,9 @@ def _stt_backend(config: Optional[dict] = None) -> str:
 class LocalHttpSTTProvider(TranscriptionProvider):
     """Speech-to-text via a local HTTP /transcribe endpoint."""
 
-    def __init__(self, provider_name="http-speech"):
-        self._provider_name = provider_name
-
     @property
     def name(self) -> str:
-        return self._provider_name
+        return "http-speech"
 
     @property
     def display_name(self) -> str:
@@ -105,7 +102,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
             return {
                 "success": False,
                 "transcript": "",
-                "error": "http_stt STT is not configured (stt.http_stt.service_url)",
+                "error": "http-speech STT service URL is not configured (plugins.entries.hermes-speech.settings.service.url)",
                 "provider": self.name,
             }
         lang = language or cfg.get("language", "auto")
@@ -158,7 +155,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                 }
 
             logger.info(
-                "Transcribed %s via http_stt (%s, %d chars)",
+                "Transcribed %s via http-speech (%s, %d chars)",
                 Path(file_path).name,
                 model_name,
                 len(transcript),

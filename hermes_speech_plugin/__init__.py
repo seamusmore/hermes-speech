@@ -13,12 +13,6 @@ def register(ctx):
     tts_provider = tts.LocalHttpTTSProvider()
     ctx.register_transcription_provider(stt_provider)
     ctx.register_tts_provider(tts_provider)
-    from .config import load_full
-    full = load_full()
-    if (full.get("stt") or {}).get("provider") == "http_stt":
-        ctx.register_transcription_provider(stt.LocalHttpSTTProvider("http_stt"))
-    if (full.get("tts") or {}).get("provider") == "http_tts":
-        ctx.register_tts_provider(tts.LocalHttpTTSProvider("http_tts"))
     ctx.on_unload(tts_provider.release)
     if stt._stt_backend() == "qwen":
         stt._prepare_qwen(ctx)

@@ -68,7 +68,7 @@ plugins:
         backend: qwen
 ```
 
-Both Hermes capabilities use the same provider ID, `http-speech`. The plugin's `backend` selects `qwen` or `service` for both. Optional `settings.stt.backend` or `settings.tts.backend` overrides allow mixed deployments. Qwen model and voice options belong under `settings.stt.qwen` or `settings.tts.qwen`. Legacy `stt.http_stt`, `tts.http_tts`, and per-capability `provider` settings remain readable during migration.
+Both Hermes capabilities use the same provider ID, `http-speech`. The plugin's `backend` selects `qwen` or `service` for both. Optional `settings.stt.backend` or `settings.tts.backend` overrides allow mixed deployments. Qwen model and voice options belong under `settings.stt.qwen` or `settings.tts.qwen`. All speech backend options are read exclusively from `plugins.entries.hermes-speech.settings`.
 
 ### 3. Optional local service
 
@@ -138,7 +138,7 @@ Verify the configured URL, token, and service `/health`, `/capabilities`, and `/
 
 Backend source is in `hermes_speech_plugin/`; desktop source is in `desktop/`. Rebuild the renderer with `python desktop/build.py`. Tests are under `tests/` and require the Hermes development environment for backend integration checks.
 
-`install.py` retains historical migration and rollback support. Use the official Hermes CLI for regular installation and updates.
+Use the official Hermes CLI for installation and updates.
 
 ## License
 

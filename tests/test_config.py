@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from hermes_speech_plugin.config import migrate_config, migrate_provider_config, provider_config, settings, validate_service_url
+from hermes_speech_plugin.config import provider_config, settings, validate_service_url
 from hermes_speech_plugin import http_client
 
 
@@ -18,62 +18,43 @@ class ConfigTests(unittest.TestCase):
                 if backend == "service":
                     self.assertEqual(provider_config(kind, cfg)["service_url"], "http://127.0.0.1:8000/" + kind)
 
-    def test_provider_migration_preserves_effective_options_and_is_idempotent(self):
-        original = self.legacy()
-        original["tts"]["streaming"] = {"provider": "http_tts", "enabled": True}
-        migrated = migrate_provider_config(original)
-        for kind in ("stt", "tts"):
-            self.assertEqual(migrated[kind]["provider"], "http-speech")
-            self.assertEqual(provider_config(kind, migrated), provider_config(kind, original))
-        self.assertEqual(migrated["tts"]["streaming"]["provider"], "http-speech")
-        self.assertEqual(migrate_provider_config(migrated), migrated)
-        self.assertEqual(original["stt"]["provider"], "http_stt")
-        self.assertEqual(migrated["voice"], original["voice"])
+    def config(self, options):
+        return {"plugins": {"entries": {"hermes-speech": {"settings": options}}}}
 
-    def test_new_backend_overrides_old_selection_and_supports_mixed_backends(self):
-        cfg = self.legacy()
-        options = {"backend": "service", "stt": {"provider": "qwen"},
-                   "tts": {"backend": "qwen"}, "service": {"url": "https://voice.example"}}
-        cfg["plugins"]["entries"] = {"hermes-speech": {"settings": options}}
-        self.assertEqual(provider_config("stt", cfg)["backend"], "local")
-        self.assertEqual(provider_config("stt", cfg)["service_url"], "https://voice.example/stt")
+    def test_mixed_backends_and_service_root(self):
+        cfg = self.config({"backend": "service", "tts": {"backend": "qwen"},
+                           "service": {"url": "https://voice.example/api/"}})
+        self.assertEqual(provider_config("stt", cfg)["service_url"], "https://voice.example/api/stt")
         self.assertEqual(provider_config("tts", cfg)["backend"], "qwen")
 
-    def legacy(self):
-        return {"stt": {"provider": "http_stt", "http_stt": {"backend": "qwen", "qwen": {"model": "asr"}}},
-                "tts": {"provider": "http_tts", "http_tts": {"backend": "local", "voice": "unchanged", "service_url": "http://127.0.0.1:8002"}},
-                "plugins": {"enabled": ["http-stt", "rtk-rewrite", "http-tts", "speech-chained", "qwen-realtime-bridge"], "disabled": []},
-                "voice": {"gpt_live": {"api_key": "preserved-secret", "model": "existing-model"}}}
+    def test_old_sections_cannot_override_or_supply_options(self):
+        cfg = self.config({"backend": "qwen", "tts": {"qwen": {"voice": "current"}}})
+        cfg["tts"] = {"http_tts": {"backend": "local", "qwen": {"voice": "old", "rate": 2}}}
+        result = provider_config("tts", cfg)
+        self.assertEqual(result["backend"], "qwen")
+        self.assertEqual(result["qwen"], {"voice": "current"})
+        old_only = {"stt": {"http_stt": {"backend": "qwen", "qwen": {"model": "old"}}}}
+        self.assertEqual(provider_config("stt", old_only)["backend"], "local")
+        self.assertEqual(provider_config("stt", old_only)["qwen"], {})
 
-    def test_provider_selection_is_independent_per_capability(self):
-        result = migrate_config(self.legacy())
-        self.assertEqual(provider_config("stt", result)["backend"], "qwen")
-        self.assertEqual(provider_config("tts", result)["backend"], "local")
-        self.assertEqual(provider_config("tts", result)["service_url"], "http://127.0.0.1:8000/tts")
-        self.assertEqual(provider_config("stt", result)["qwen"]["model"], "asr")
+    def test_old_selection_and_url_are_ignored(self):
+        cfg = self.config({"stt": {"provider": "qwen", "service_url": "http://127.0.0.1:8001"}})
+        result = provider_config("stt", cfg)
+        self.assertEqual(result["backend"], "local")
+        self.assertEqual(result["service_url"], "http://127.0.0.1:8000/stt")
 
-    def test_migration_preserves_input_settings_and_unrelated_plugins(self):
-        original = self.legacy()
-        before = copy.deepcopy(original)
-        result = migrate_config(original)
-        self.assertEqual(original, before)
-        self.assertEqual(result["voice"], before["voice"])
-        self.assertEqual(result["plugins"]["enabled"], ["rtk-rewrite", "hermes-speech"])
-        self.assertEqual(provider_config("tts", result)["voice"], "unchanged")
-        self.assertFalse(settings(result)["service"]["managed"])
+    def test_options_are_copied_without_mutating_input(self):
+        cfg = self.config({"backend": "qwen", "tts": {"qwen": {"voice": "current", "rate": 1.2}}})
+        before = copy.deepcopy(cfg)
+        result = provider_config("tts", cfg)
+        result["qwen"]["voice"] = "changed"
+        self.assertEqual(cfg, before)
+        self.assertEqual(settings(cfg)["tts"]["qwen"]["rate"], 1.2)
 
-    def test_migration_is_idempotent(self):
-        once = migrate_config(self.legacy())
-        self.assertEqual(migrate_config(once), once)
-
-    def test_legacy_urls_work_until_explicit_migration(self):
-        self.assertEqual(provider_config("tts", self.legacy())["service_url"], "http://127.0.0.1:8002")
-
-    def test_bad_provider_fails_explicitly(self):
-        cfg = migrate_config(self.legacy())
-        cfg["plugins"]["entries"]["hermes-speech"]["settings"]["stt"]["provider"] = "typo"
-        with self.assertRaises(ValueError):
-            provider_config("stt", cfg)
+    def test_bad_backend_fails_explicitly(self):
+        for backend in ("typo", "local"):
+            with self.assertRaises(ValueError):
+                provider_config("stt", self.config({"backend": backend}))
 
     def test_remote_service_requires_tls_and_separate_credentials(self):
         self.assertEqual(validate_service_url("https://voice.example/api/"), "https://voice.example/api")

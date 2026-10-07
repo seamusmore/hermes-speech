@@ -47,12 +47,9 @@ def _qwen_tts_config(
 class LocalHttpTTSProvider(TTSProvider):
     """Text-to-speech via a local HTTP /synthesize endpoint."""
 
-    def __init__(self, provider_name="http-speech"):
-        self._provider_name = provider_name
-
     @property
     def name(self) -> str:
-        return self._provider_name
+        return "http-speech"
 
     @property
     def display_name(self) -> str:
@@ -153,7 +150,7 @@ class LocalHttpTTSProvider(TTSProvider):
         service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
         if not service_url:
             raise RuntimeError(
-                "http_tts TTS is not configured (tts.http_tts.service_url)"
+                "http-speech TTS service URL is not configured (plugins.entries.hermes-speech.settings.service.url)"
             )
 
         use_voice = voice or cfg.get("voice", "中文女")
@@ -192,7 +189,7 @@ class LocalHttpTTSProvider(TTSProvider):
             out.write_bytes(response.content)
 
             logger.info(
-                "Synthesized %d chars via http_tts (%s, %s, %d bytes)",
+                "Synthesized %d chars via http-speech (%s, %s, %d bytes)",
                 len(text),
                 use_voice,
                 use_model,
@@ -226,7 +223,7 @@ class LocalHttpTTSProvider(TTSProvider):
         service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
         if not service_url:
             raise RuntimeError(
-                "http_tts TTS is not configured (tts.http_tts.service_url)"
+                "http-speech TTS service URL is not configured (plugins.entries.hermes-speech.settings.service.url)"
             )
 
         use_voice = voice or cfg.get("voice", "")
@@ -261,7 +258,7 @@ class LocalHttpTTSProvider(TTSProvider):
             yield from response.iter_content(chunk_size=4096)
 
             logger.info(
-                "Streamed %d chars via http_tts (%s, %s)",
+                "Streamed %d chars via http-speech (%s, %s)",
                 len(text),
                 use_voice,
                 use_model,
@@ -401,7 +398,7 @@ def _cancellable_pcm(service_url, data):
 
 
 def _register_streamer() -> None:
-    """Dynamically register an http_tts StreamingTTSProvider into tts_streaming._REGISTRY.
+    """Dynamically register an http-speech StreamingTTSProvider into tts_streaming._REGISTRY.
 
     This lets the desktop speak-stream WebSocket use our local TTS service
     for per-sentence streaming (each sentence is POSTed to /synthesize-stream,
@@ -445,7 +442,7 @@ def _register_streamer() -> None:
                     return
                 service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
                 if not service_url:
-                    raise RuntimeError("http_tts service_url not configured")
+                    raise RuntimeError("http-speech service URL not configured")
 
                 use_voice = cfg.get("voice", "")
                 use_model = cfg.get("model") or _configured_engine()
@@ -462,12 +459,9 @@ def _register_streamer() -> None:
 
         from tools.tts_streaming import _REGISTRY
         from ...cjk_boundaries import register_owned
-        undos = [register_owned(_REGISTRY, name, HttpTTSStreamer) for name in ('http-speech', 'http_tts')]
-        def undo():
-            for release in reversed(undos):
-                release()
+        undo = register_owned(_REGISTRY, 'http-speech', HttpTTSStreamer)
         logger.info("Registered http-speech streaming provider")
         return undo
     except Exception as exc:
-        logger.warning("Failed to register http_tts streaming provider: %s", exc, exc_info=True)
+        logger.warning("Failed to register http-speech streaming provider: %s", exc, exc_info=True)
         return lambda: None

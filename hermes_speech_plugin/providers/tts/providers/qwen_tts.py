@@ -123,7 +123,7 @@ def stream_pcm(text: str, config: Dict[str, Any], *, stop_event=None) -> Iterato
     model = str(config.get("model") or QWEN_TTS_MODEL)
     if model not in SUPPORTED_QWEN_TTS_MODELS:
         supported = ", ".join(sorted(SUPPORTED_QWEN_TTS_MODELS))
-        raise RuntimeError(f"Unsupported http_tts Qwen model: {model}; supported: {supported}")
+        raise RuntimeError(f"Unsupported http-speech Qwen model: {model}; supported: {supported}")
     voice = str(config.get("voice") or "").strip()
     if not voice:
         raise RuntimeError("Qwen TTS requires a voice ID")

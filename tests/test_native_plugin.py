@@ -31,9 +31,7 @@ class NativePluginTests(unittest.TestCase):
         from fastapi.testclient import TestClient
         from hermes_speech_plugin import config, events_runtime
         source = Path(__file__).resolve().parents[1]
-        full = config.migrate_config({"stt": {"http_stt": {"backend": "local"}},
-                                     "tts": {"http_tts": {"backend": "local"}}})
-        full = config.migrate_provider_config(full)
+        full = {"plugins": {"entries": {"hermes-speech": {"settings": {"backend": "service"}}}}}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             target = root / "plugins" / "hermes-speech"
@@ -55,7 +53,8 @@ class NativePluginTests(unittest.TestCase):
                     from tools.tts_streaming import _REGISTRY
                     for registry in (transcription_registry, tts_registry):
                         self.assertEqual(registry.get_provider("http-speech", scope=str(root)).name, "http-speech")
-                    self.assertIs(_REGISTRY["http-speech"], _REGISTRY["http_tts"])
+                    self.assertIn("http-speech", _REGISTRY)
+                    self.assertNotIn("http_tts", _REGISTRY)
                     self.assertEqual((root/"desktop-plugins/hermes-speech/plugin.js").read_bytes(),
                                      (source/"desktop/plugin.js").read_bytes())
                     spec = importlib.util.spec_from_file_location("unified_native_api_test", target/"dashboard/plugin_api.py")
@@ -69,11 +68,9 @@ class NativePluginTests(unittest.TestCase):
                         manager.unload(manifest.name)
                         self.assertTrue(wait_closed(port))
                         self.assertEqual(client.post("/api/plugins/hermes-speech/ensure").status_code, 503)
-                        full["stt"]["provider"] = "http_stt"
-                        full["tts"]["provider"] = "http_tts"
                         manager._load_plugin(manifest)
-                        self.assertEqual(transcription_registry.get_provider("http_stt", scope=str(root)).name, "http_stt")
-                        self.assertEqual(tts_registry.get_provider("http_tts", scope=str(root)).name, "http_tts")
+                        self.assertEqual(transcription_registry.get_provider("http-speech", scope=str(root)).name, "http-speech")
+                        self.assertEqual(tts_registry.get_provider("http-speech", scope=str(root)).name, "http-speech")
                         second = client.post("/api/plugins/hermes-speech/ensure")
                         self.assertEqual(second.status_code, 200, second.text)
                         self.assertNotEqual(first.json()["instance"], second.json()["instance"])

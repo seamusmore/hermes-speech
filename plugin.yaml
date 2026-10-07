@@ -1,5 +1,5 @@
 name: hermes-speech
-version: 3.1.0
+version: 3.2.0
 description: "Unified speech API client: Qwen and Hermes Speech Service are peer providers"
 author: seamusmore
 kind: backend
