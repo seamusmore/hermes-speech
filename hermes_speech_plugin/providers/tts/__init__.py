@@ -47,13 +47,16 @@ def _qwen_tts_config(
 class LocalHttpTTSProvider(TTSProvider):
     """Text-to-speech via a local HTTP /synthesize endpoint."""
 
+    def __init__(self, provider_name="http-speech"):
+        self._provider_name = provider_name
+
     @property
     def name(self) -> str:
-        return "http_tts"
+        return self._provider_name
 
     @property
     def display_name(self) -> str:
-        return "http_tts (Local / Qwen Audio 3.0 Flash)"
+        return self.name
 
     def warm(self) -> None:
         cfg = _load_http_tts_config()
@@ -459,8 +462,11 @@ def _register_streamer() -> None:
 
         from tools.tts_streaming import _REGISTRY
         from ...cjk_boundaries import register_owned
-        undo = register_owned(_REGISTRY, 'http_tts', HttpTTSStreamer)
-        logger.info("Registered http_tts streaming provider")
+        undos = [register_owned(_REGISTRY, name, HttpTTSStreamer) for name in ('http-speech', 'http_tts')]
+        def undo():
+            for release in reversed(undos):
+                release()
+        logger.info("Registered http-speech streaming provider")
         return undo
     except Exception as exc:
         logger.warning("Failed to register http_tts streaming provider: %s", exc, exc_info=True)

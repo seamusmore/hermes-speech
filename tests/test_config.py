@@ -5,11 +5,40 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from hermes_speech_plugin.config import migrate_config, provider_config, settings, validate_service_url
+from hermes_speech_plugin.config import migrate_config, migrate_provider_config, provider_config, settings, validate_service_url
 from hermes_speech_plugin import http_client
 
 
 class ConfigTests(unittest.TestCase):
+    def test_shared_backend_controls_both_capabilities(self):
+        for backend, resolved in (("qwen", "qwen"), ("service", "local")):
+            cfg = {"plugins": {"entries": {"hermes-speech": {"settings": {"backend": backend}}}}}
+            for kind in ("stt", "tts"):
+                self.assertEqual(provider_config(kind, cfg)["backend"], resolved)
+                if backend == "service":
+                    self.assertEqual(provider_config(kind, cfg)["service_url"], "http://127.0.0.1:8000/" + kind)
+
+    def test_provider_migration_preserves_effective_options_and_is_idempotent(self):
+        original = self.legacy()
+        original["tts"]["streaming"] = {"provider": "http_tts", "enabled": True}
+        migrated = migrate_provider_config(original)
+        for kind in ("stt", "tts"):
+            self.assertEqual(migrated[kind]["provider"], "http-speech")
+            self.assertEqual(provider_config(kind, migrated), provider_config(kind, original))
+        self.assertEqual(migrated["tts"]["streaming"]["provider"], "http-speech")
+        self.assertEqual(migrate_provider_config(migrated), migrated)
+        self.assertEqual(original["stt"]["provider"], "http_stt")
+        self.assertEqual(migrated["voice"], original["voice"])
+
+    def test_new_backend_overrides_old_selection_and_supports_mixed_backends(self):
+        cfg = self.legacy()
+        options = {"backend": "service", "stt": {"provider": "qwen"},
+                   "tts": {"backend": "qwen"}, "service": {"url": "https://voice.example"}}
+        cfg["plugins"]["entries"] = {"hermes-speech": {"settings": options}}
+        self.assertEqual(provider_config("stt", cfg)["backend"], "local")
+        self.assertEqual(provider_config("stt", cfg)["service_url"], "https://voice.example/stt")
+        self.assertEqual(provider_config("tts", cfg)["backend"], "qwen")
+
     def legacy(self):
         return {"stt": {"provider": "http_stt", "http_stt": {"backend": "qwen", "qwen": {"model": "asr"}}},
                 "tts": {"provider": "http_tts", "http_tts": {"backend": "local", "voice": "unchanged", "service_url": "http://127.0.0.1:8002"}},

@@ -58,20 +58,17 @@ Merge the following settings into the active profile's `config.yaml`:
 ```yaml
 stt:
   enabled: true
-  provider: http_stt
+  provider: http-speech
 tts:
-  provider: http_tts
+  provider: http-speech
 plugins:
   entries:
     hermes-speech:
       settings:
-        stt:
-          provider: qwen
-        tts:
-          provider: qwen
+        backend: qwen
 ```
 
-Each capability accepts `qwen` or `service`. Existing `stt.http_stt` and `tts.http_tts` options remain compatible. Qwen model and voice overrides belong under the corresponding capability's `qwen` mapping.
+Both Hermes capabilities use the same provider ID, `http-speech`. The plugin's `backend` selects `qwen` or `service` for both. Optional `settings.stt.backend` or `settings.tts.backend` overrides allow mixed deployments. Qwen model and voice options belong under `settings.stt.qwen` or `settings.tts.qwen`. Legacy `stt.http_stt`, `tts.http_tts`, and per-capability `provider` settings remain readable during migration.
 
 ### 3. Optional local service
 
@@ -80,10 +77,7 @@ First install and start [Hermes Speech Service](https://github.com/seamusmore/he
 Use this plugin settings block for an independently running service:
 
 ```yaml
-stt:
-  provider: service
-tts:
-  provider: service
+backend: service
 service:
   url: http://127.0.0.1:8000
   managed: false
@@ -112,7 +106,7 @@ See [CLIENT_API.md](CLIENT_API.md) for HTTP/WebSocket contracts and `desktop/cli
 
 ## How It Works
 
-The backend registers transcription and speech providers named `http_stt` and `http_tts`. Qwen requests go directly to Qwen APIs. Service requests use the configured Hermes Speech Service URL. The desktop component captures audio, submits recognized text through Hermes, and plays synthesized assistant responses.
+The plugin registers `http-speech` in both the transcription and speech synthesis registries. Qwen requests go directly to Qwen APIs. Service requests use the configured Hermes Speech Service URL. The desktop component captures audio, submits recognized text through Hermes, and plays synthesized assistant responses.
 
 ## Speech Service Example
 

@@ -505,7 +505,10 @@ export function installChainedTransport(ctx, host) {
           const response = await bounded(host.requestProfile(route, 'config.get', {key:'full'}, 2000))
           const cfg = response?.config
           const activeMatches = () => (host.state.connectionId?.get() || 'local') === (owner.connectionId || 'local') && host.state.profile?.get() === owner.profile
-          if (cfg?.tts?.provider === 'http_tts' && cfg.tts.http_tts?.backend === 'qwen' && cfg.tts.http_tts.streaming !== false && cfg.tts.streaming !== false && cfg.tts.streaming?.enabled !== false && [undefined,'','http_tts'].includes(cfg.tts.streaming?.provider) && (cfg.voice?.voice_chat_mode || 'chained') === 'chained' && activeMatches() && ctx.rest) {
+          const speech = cfg?.plugins?.entries?.['hermes-speech']?.settings || {}
+          const speechTts = {...(cfg?.tts?.http_tts || {}), ...(speech.tts || {})}
+          const backend = speech.tts?.backend ?? speech.backend ?? speech.tts?.provider ?? speechTts.backend
+          if (['http-speech','http_tts'].includes(cfg?.tts?.provider) && backend === 'qwen' && speechTts.streaming !== false && cfg.tts.streaming !== false && cfg.tts.streaming?.enabled !== false && [undefined,'','http-speech','http_tts'].includes(cfg.tts.streaming?.provider) && (cfg.voice?.voice_chat_mode || 'chained') === 'chained' && activeMatches() && ctx.rest) {
             const scope = await bounded(ctx.rest('/transport-scope', {timeoutMs:2000}))
             if (!activeMatches() || !scope?.qwen_enabled || !['127.0.0.1','localhost'].includes(scope.host) || Number(url.port || 80) !== scope.port || url.pathname !== scope.path || requestedProfile !== scope.profile) throw new Error('unrelated WebSocket owner')
             url.pathname = url.pathname.replace(/\/api\/audio\/speak-stream$/, '/api/plugins/hermes-speech/speak-stream')
@@ -788,4 +791,3 @@ export const RealtimeCompatibility = {
     })
   }
 }
-

@@ -23,13 +23,16 @@ def _stt_backend(config: Optional[dict] = None) -> str:
 class LocalHttpSTTProvider(TranscriptionProvider):
     """Speech-to-text via a local HTTP /transcribe endpoint."""
 
+    def __init__(self, provider_name="http-speech"):
+        self._provider_name = provider_name
+
     @property
     def name(self) -> str:
-        return "http_stt"
+        return self._provider_name
 
     @property
     def display_name(self) -> str:
-        return "http_stt"
+        return self.name
 
     def is_available(self) -> bool:
         cfg = _load_http_stt_config()
@@ -74,7 +77,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                         "stt_return backend=qwen request_id=%s local_silence=true elapsed_ms=%.2f",
                         result.get("request_id"), (time.perf_counter() - started) * 1000,
                     )
-                    return {"success": True, "transcript": "", "provider": "http_stt"}
+                    return {"success": True, "transcript": "", "provider": self.name}
                 if not transcript:
                     raise RuntimeError("Qwen ASR returned an empty transcript")
                 logger.info(
@@ -88,14 +91,14 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                     "stt_return backend=qwen request_id=%s local_silence=false elapsed_ms=%.2f",
                     result.get("request_id"), (time.perf_counter() - started) * 1000,
                 )
-                return {"success": True, "transcript": transcript, "provider": "http_stt"}
+                return {"success": True, "transcript": transcript, "provider": self.name}
             except Exception as exc:
                 logger.error("Qwen streaming ASR failed: %s", exc, exc_info=True)
                 return {
                     "success": False,
                     "transcript": "",
                     "error": f"Qwen streaming ASR failed: {exc}",
-                    "provider": "http_stt",
+                    "provider": self.name,
                 }
         service_url = str(cfg.get("service_url", "")).strip().rstrip("/")
         if not service_url:
@@ -103,7 +106,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                 "success": False,
                 "transcript": "",
                 "error": "http_stt STT is not configured (stt.http_stt.service_url)",
-                "provider": "http_stt",
+                "provider": self.name,
             }
         lang = language or cfg.get("language", "auto")
         model_name = model or cfg.get("model")
@@ -136,7 +139,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                         f"Local HTTP STT error (HTTP {response.status_code}): "
                         f"{response.text[:300]}"
                     ),
-                    "provider": "http_stt",
+                    "provider": self.name,
                 }
 
             result = response.json()
@@ -151,7 +154,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                     "success": False,
                     "transcript": "",
                     "error": "Local HTTP STT returned empty transcript",
-                    "provider": "http_stt",
+                    "provider": self.name,
                 }
 
             logger.info(
@@ -166,7 +169,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
             return {
                 "success": True,
                 "transcript": transcript,
-                "provider": "http_stt",
+                "provider": self.name,
             }
 
         except Exception as exc:
@@ -175,7 +178,7 @@ class LocalHttpSTTProvider(TranscriptionProvider):
                 "success": False,
                 "transcript": "",
                 "error": f"Local HTTP STT failed: {exc}",
-                "provider": "http_stt",
+                "provider": self.name,
             }
 
 
@@ -201,4 +204,3 @@ def _prepare_qwen(ctx):
     ctx.on_unload(release)
     ctx.register_hook('on_session_start', prepare)
     prepare()
-

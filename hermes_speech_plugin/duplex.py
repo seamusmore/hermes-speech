@@ -26,7 +26,7 @@ def resolve_asr(profile):
         from agent.transcription_registry import get_provider
         from hermes_cli.plugins import _ensure_plugins_discovered
         _ensure_plugins_discovered()
-        provider = get_provider('http_stt')
+        provider = get_provider('http-speech')
         if provider is None: raise RuntimeError('HTTP STT plugin is not loaded')
         module = type(provider).__module__
         plugin = importlib.import_module(module)
@@ -328,4 +328,3 @@ async def duplex(ws: WebSocket):
             done, pending = await asyncio.wait(tasks, timeout=6)
             for task in done:
                 with contextlib.suppress(Exception): task.result()
-

@@ -23,7 +23,7 @@ def resolve_stream(profile):
         section = tts._load_http_tts_config()
         if section.get("backend") == "qwen":
             from .providers.tts.providers import qwen_tts
-            return qwen_tts.stream_pcm, tts._qwen_tts_config(section), cfg, _resolve_max_text_length("http_tts", cfg)
+            return qwen_tts.stream_pcm, tts._qwen_tts_config(section), cfg, _resolve_max_text_length(cfg.get("provider") or "http-speech", cfg)
         def local_stream(text, config, stop_event=None):
             data = {"text": text, "voice": config.get("voice", ""),
                     "model": config.get("model", ""), "language": config.get("language", "zh")}
@@ -32,7 +32,7 @@ def resolve_stream(profile):
                     if stop_event and stop_event.is_set():
                         return
                     yield block
-        return local_stream, section, cfg, _resolve_max_text_length("http_tts", cfg)
+        return local_stream, section, cfg, _resolve_max_text_length(cfg.get("provider") or "http-speech", cfg)
 
 @router.get('/transport-scope')
 def transport_scope(request: Request, profile: str = None):
@@ -43,9 +43,9 @@ def transport_scope(request: Request, profile: str = None):
         from .config import provider_config
         section = provider_config('tts', full)
         streaming = cfg.get('streaming') if isinstance(cfg.get('streaming'), dict) else {}
-        enabled = (cfg.get('provider') == 'http_tts' and section.get('backend') == 'qwen'
+        enabled = (cfg.get('provider') in ('http-speech', 'http_tts') and section.get('backend') == 'qwen'
                    and section.get('streaming') is not False and cfg.get('streaming') is not False
-                   and streaming.get('enabled') is not False and streaming.get('provider') in (None, '', 'http_tts')
+                   and streaming.get('enabled') is not False and streaming.get('provider') in (None, '', 'http-speech', 'http_tts')
                    and (full.get('voice') or {}).get('voice_chat_mode', 'chained') == 'chained')
     return {'host': request.url.hostname, 'port': request.url.port or 80,
             'path': request.url.path.replace('/api/plugins/hermes-speech/transport-scope', '/api/audio/speak-stream'),

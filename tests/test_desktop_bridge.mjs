@@ -337,6 +337,10 @@ test('Chained routing binds local profile and Qwen config, preserves native traf
   }
   const chained={config:{tts:{provider:'http_tts',http_tts:{backend:'qwen'}},voice:{voice_chat_mode:'chained'}}}
   const cases=[{config:{config:{...chained.config,tts:{...chained.config.tts,http_tts:{backend:'qwen',streaming:false}}}},profile:'default',adapt:false},{config:chained,profile:'default',mode:'remote',adapt:false},{config:chained,profile:'default',adapt:true},{config:chained,profile:'other',adapt:false},{config:qwenConfig,profile:'default',adapt:false},{config:null,profile:'default',adapt:false}]
+  for(const backend of ['qwen','service']) {
+    cases.push({config:{config:{tts:{provider:'http-speech',streaming:{provider:'http-speech'}},plugins:{entries:{'hermes-speech':{settings:{backend}}}}}},profile:'default',adapt:backend==='qwen'})
+  }
+  cases.push({config:{config:{tts:{provider:'http-speech'},plugins:{entries:{'hermes-speech':{settings:{backend:'qwen',tts:{streaming:false}}}}}}},profile:'default',adapt:false})
   try {
     for(const item of cases){
       globalThis.WebSocket=Socket
@@ -379,4 +383,3 @@ test('Chained sockets close during scope query and unrelated ports stay native',
     dispose()
   }finally{globalThis.WebSocket=original;globalThis.CloseEvent=oldClose}
 })
-
