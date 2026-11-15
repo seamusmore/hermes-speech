@@ -7,3 +7,4 @@ pip_dependencies:
   - 'audioop-lts==0.2.2; python_version >= "3.13"'
   - av==18.1.0
   - numpy==2.5.4
+  - onnxruntime>=1.17

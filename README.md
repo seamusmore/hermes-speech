@@ -14,7 +14,7 @@ Speech plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent). 
 ## Requirements
 
 - Hermes Agent with backend plugin support. Desktop voice also requires the Hermes desktop app.
-- Python dependencies are declared in `plugin.yaml` and installed by Hermes PM during plugin installation or enablement: `audioop-lts==0.2.2` on Python 3.13+ and `av==18.1.0`.
+- Python dependencies are declared in `plugin.yaml` and installed by Hermes PM during plugin installation or enablement: `audioop-lts==0.2.2` on Python 3.13+, `av==18.1.0`, `numpy==2.5.4`, and `onnxruntime>=1.17`. ONNX Runtime is required when loading the plugin API routes, which import the bundled Silero speech detector.
 - A Qwen API account or a reachable [Hermes Speech Service](https://github.com/seamusmore/hermes-speech-service) deployment. For local speech, follow the service repository's installation instructions first; it manages the model weights and inference environment.
 
 ## Installation
